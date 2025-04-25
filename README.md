@@ -12,8 +12,8 @@ After that, you can run the migration generation script with:
 bun run genmig
 ```
 
-It will show a list of the currently available branches. Select the one for
-which you want to generate the migration for.
+It will generate the migration based on the current branch you are on in the
+specified `$REPO_DIR`, using the state in the `$DEV_BRANCH` as the baseline.
 
 # Requirements
 
