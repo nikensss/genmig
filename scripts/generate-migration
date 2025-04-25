@@ -1,0 +1,95 @@
+#!/usr/bin/env zsh
+
+set -e
+trap 'echo "Error: Command failed at line $LINENO"' ERR
+
+source .env
+
+if [ -z "$REPO_DIR" ]; then
+    echo "Please set the REPO_DIR environment variable."
+    exit 1
+fi
+
+if [ -z "$DEV_BRANCH" ]; then
+    echo "Please set the DEV_BRANCH environment variable."
+    exit 1
+fi
+
+if [ -z "$DATABASE_URL" ]; then
+    echo "Please set the DATABASE_URL environment variable."
+    exit 1
+fi
+
+CURRENT_DIR=$(pwd)
+cd $REPO_DIR
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+CURRENT_BRANCH_SAFE=$(echo $CURRENT_BRANCH | sed 's/[^a-zA-Z0-9]/_/g')
+
+docker compose down -v 
+docker compose up -d 
+./run clean 
+pnpm i 
+pnpm db:reset
+
+cd $CURRENT_DIR
+
+expect << EOF
+spawn bun run sync
+expect "Do you want to continue? All data will be lost."
+send "y\r"
+expect eof
+EOF
+
+bun run bak
+
+cd $REPO_DIR
+
+git checkout $DEV_BRANCH
+docker compose down -v 
+docker compose up -d 
+./run clean 
+pnpm i 
+pnpm db:reset
+
+cd $CURRENT_DIR
+
+expect << EOF
+spawn bun run sync
+expect "Do you want to continue? All data will be lost."
+send "y\r"
+expect eof
+EOF
+
+bun run unbak
+bun run migrate -- --name=$CURRENT_BRANCH_SAFE
+
+cd $REPO_DIR
+git checkout $CURRENT_BRANCH
+
+cd $CURRENT_DIR
+
+mkdir -p ./past-migrations
+
+found=false
+cd ./prisma/migrations/
+
+for dir in */; do
+    dirname=${dir%/} # Remove trailing slash
+    
+    if [[ "$dirname" =~ .*"$CURRENT_BRANCH_SAFE"$ ]]; then
+        echo "Copying directory: $dirname"
+        cp -r "$dirname" ../../past-migrations/
+        found=true
+    fi
+done
+
+cd ../../
+
+if [ "$found" = false ]; then
+    echo -e "\e[31mNo directories found ending exactly with '$CURRENT_BRANCH_SAFE' in ./prisma/migrations/\e[0m"
+    exit 1
+else
+    echo -e "\e[32mFinished copying directories to ./past-migrations/\e[0m"
+fi
+

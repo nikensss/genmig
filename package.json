@@ -1,0 +1,25 @@
+{
+  "name": "prisma-migrations",
+  "version": "1.0.0",
+  "description": "use prisma to generate migrations for databases",
+  "main": "index.js",
+  "scripts": {
+    "sync": "./scripts/sync",
+    "bak": "cp ./prisma/schema.prisma ./schema.prisma.bak",
+    "unbak": "cp ./schema.prisma.bak ./prisma/schema.prisma",
+    "migrate": "bunx prisma migrate dev",
+    "genmig": "./scripts/generate-migration"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "6.4.1",
+    "dotenv-cli": "7.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "1.1.3",
+    "prisma": "6.4.1",
+    "ts-node": "10.9.2",
+    "typescript": "5.4.5"
+  }
+}

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+psql $DB_UI_CHERRY_POSTGRES_LH -c "DROP TABLE IF EXISTS _prisma_migrations;"
+
+rm -rdf ./prisma
+
+echo "initialising..."
+prisma init --datasource-provider postgresql
+
+echo "pulling schema..."
+prisma db pull 
+
+cat ./prisma/schema.prisma \
+  | perl -pe 's/(^\s*)broadcast_id(\s+)BigInt/\1broadcast_id\2Int/' \
+  | perl -pe 's/(^\s*)reporter_id(\s+)Int/\1reporter_id\2BigInt/' \
+  | perl -pe 's/(^\s*)last_agora_webhook_id(\s+)Int/\1last_agora_webhook_id\2BigInt/' \
+  | perl -pe 's/(^\s*)user_id(\s+)Int/\1user_id\2BigInt/' \
+  | perl -pe 's/(^\s*)streamer_id(\s+)Int/\1streamer_id\2BigInt/' \
+  | perl -pe 's/(^\s*)transfer_id(\s+)Int/\1transfer_id\2BigInt/' \
+  | perl -pe 's/(^\s*payment_methods\s+payment_methods.*)(SetNull)(.*$)/\1 NoAction\3/' \
+  > prisma/schema.prisma.tmp
+
+mv ./prisma/schema.prisma.tmp ./prisma/schema.prisma
+
+rm -rdf ./prisma/migrations 
+
+echo "generating migration..."
+prisma migrate dev --name init
